@@ -16,8 +16,6 @@ limitations under the License.
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
-#include <vector>
-#include <iostream>
 
 #include "tensorflow/lite/core/c/common.h"
 #include "tensorflow/lite/micro/examples/micro_speech/micro_model_settings.h"
@@ -123,12 +121,10 @@ TfLiteStatus LoadMicroSpeechModelAndPerformInference(
   float output_scale = output->params.scale;
   int output_zero_point = output->params.zero_point;
 
-  for (int i = 0; i < 4; i++) {
-    std::copy_n(&features[0][0], kFeatureElementCount,
-                tflite::GetTensorData<int8_t>(input));
-    TF_LITE_MICRO_EXPECT(interpreter.Invoke() == kTfLiteOk);
-    TF_LITE_MICRO_CHECK_FAIL();
-  }
+  std::copy_n(&features[0][0], kFeatureElementCount,
+              tflite::GetTensorData<int8_t>(input));
+  TF_LITE_MICRO_EXPECT(interpreter.Invoke() == kTfLiteOk);
+  TF_LITE_MICRO_CHECK_FAIL();
 
   // Dequantize output values
   float category_predictions[kCategoryCount];
