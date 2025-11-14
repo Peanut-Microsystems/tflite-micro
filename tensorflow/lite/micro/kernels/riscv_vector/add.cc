@@ -29,6 +29,7 @@ limitations under the License.
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/memory_helpers.h"
 #include "tensorflow/lite/micro/micro_log.h"
+#include <cstdio>
 
 #include "tensorflow/lite/micro/kernels/riscv_vector/add_rvv.h"
 
@@ -38,8 +39,10 @@ TfLiteStatus EvalAdd(TfLiteContext* context, TfLiteNode* node,
                      TfLiteAddParams* params, const OpDataAdd* data,
                      const TfLiteEvalTensor* input1,
                      const TfLiteEvalTensor* input2, TfLiteEvalTensor* output) {
+ //printf("Output tensor type: %d\n", output->type );
   switch (output->type) {
     case kTfLiteFloat32: {
+      //printf("here");
       tflite::ArithmeticParams op_params = {};
       SetActivationParams(data->output_activation_min_f32,
                           data->output_activation_max_f32, &op_params);
@@ -61,11 +64,14 @@ TfLiteStatus EvalAdd(TfLiteContext* context, TfLiteNode* node,
       }
     } break;
     case kTfLiteInt32: {
+      //printf("here");
       tflite::ArithmeticParams op_params = {};
       SetActivationParams(std::numeric_limits<int32_t>::lowest(),
                           std::numeric_limits<int32_t>::max(), &op_params);
-      if (data->requires_broadcast) {
-        reference_ops::BroadcastAdd4DSlow(
+      //printf("g");
+      if (data->requires_broadcast){
+        printf("Add32Broadcast");
+        AddRVV32(
             op_params, tflite::micro::GetTensorShape(input1),
             tflite::micro::GetTensorData<int32_t>(input1),
             tflite::micro::GetTensorShape(input2),
@@ -73,7 +79,8 @@ TfLiteStatus EvalAdd(TfLiteContext* context, TfLiteNode* node,
             tflite::micro::GetTensorShape(output),
             tflite::micro::GetTensorData<int32_t>(output));
       } else {
-        reference_ops::Add(op_params, tflite::micro::GetTensorShape(input1),
+        //printf("AddRVV32\n");
+        AddRVV32(op_params, tflite::micro::GetTensorShape(input1),
                            tflite::micro::GetTensorData<int32_t>(input1),
                            tflite::micro::GetTensorShape(input2),
                            tflite::micro::GetTensorData<int32_t>(input2),
@@ -95,6 +102,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
                               const TfLiteEvalTensor* input1,
                               const TfLiteEvalTensor* input2,
                               TfLiteEvalTensor* output) {
+  //printf("EvalAddQuantized");
   tflite::ArithmeticParams op_params = {};
   op_params.left_shift = data->left_shift;
   op_params.input1_offset = data->input1_offset;
@@ -114,8 +122,10 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
 
   switch (output->type) {
     case kTfLiteInt8: {
+      //printf("8");
       if (need_broadcast) {
-        reference_integer_ops::BroadcastAdd4DSlow(
+        //reference_integer_ops::BroadcastAdd4DSlow
+        AddRVV8(
             op_params, tflite::micro::GetTensorShape(input1),
             tflite::micro::GetTensorData<int8_t>(input1),
             tflite::micro::GetTensorShape(input2),
@@ -134,6 +144,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
       break;
     }
     case kTfLiteInt16: {
+      //printf("16");
       if (need_broadcast) {
         reference_ops::BroadcastAdd4DSlow(
             op_params, tflite::micro::GetTensorShape(input1),
@@ -181,7 +192,7 @@ TfLiteStatus AddEval(TfLiteContext* context, TfLiteNode* node) {
       tflite::micro::GetEvalOutput(context, node, kAddOutputTensor);
 
   if (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32) {
-    TF_LITE_ENSURE_OK(
+    TF_LITE_ENSURE_OK( //EvalAdd
         context, EvalAdd(context, node, params, data, input1, input2, output));
   } else if (output->type == kTfLiteInt8 || output->type == kTfLiteInt16) {
     TF_LITE_ENSURE_OK(context, EvalAddQuantized(context, node, params, data,

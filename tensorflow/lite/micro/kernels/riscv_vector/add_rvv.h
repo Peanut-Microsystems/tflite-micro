@@ -13,6 +13,11 @@
 
 using namespace tflite;
 
+void AddRVV32(const ArithmeticParams& params,
+          const RuntimeShape& input1_shape, const int32_t* input1_data,
+          const RuntimeShape& input2_shape, const int32_t* input2_data,
+          const RuntimeShape& output_shape, int32_t* output_data);
+
 void AddRVV8(const ArithmeticParams& params,
           const RuntimeShape& input1_shape, const int8_t* input1_data,
           const RuntimeShape& input2_shape, const int8_t* input2_data,
