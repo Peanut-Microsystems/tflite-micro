@@ -29,6 +29,7 @@ limitations under the License.
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/memory_helpers.h"
 #include "tensorflow/lite/micro/micro_log.h"
+#include <cstdio>
 
 namespace tflite {
 
@@ -59,6 +60,7 @@ TfLiteStatus EvalAdd(TfLiteContext* context, TfLiteNode* node,
       }
     } break;
     case kTfLiteInt32: {
+    
       tflite::ArithmeticParams op_params = {};
       SetActivationParams(std::numeric_limits<int32_t>::lowest(),
                           std::numeric_limits<int32_t>::max(), &op_params);
@@ -93,6 +95,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
                               const TfLiteEvalTensor* input1,
                               const TfLiteEvalTensor* input2,
                               TfLiteEvalTensor* output) {
+  printf("here");
   tflite::ArithmeticParams op_params = {};
   op_params.left_shift = data->left_shift;
   op_params.input1_offset = data->input1_offset;
@@ -112,6 +115,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
 
   switch (output->type) {
     case kTfLiteInt8: {
+      printf("here\n");
       if (need_broadcast) {
         reference_integer_ops::BroadcastAdd4DSlow(
             op_params, tflite::micro::GetTensorShape(input1),
@@ -132,6 +136,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
       break;
     }
     case kTfLiteInt16: {
+      printf("here");
       if (need_broadcast) {
         reference_ops::BroadcastAdd4DSlow(
             op_params, tflite::micro::GetTensorShape(input1),
