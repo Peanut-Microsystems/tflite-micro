@@ -23,10 +23,6 @@ limitations under the License.
 
 namespace tflite {
 
-// RISC-V Vector optimized RELU for float32
-void ReluFloatRVV(const RuntimeShape& input_shape, const float* input_data,
-                  const RuntimeShape& output_shape, float* output_data);
-
 // RISC-V Vector optimized RELU for quantized int8
 void ReluQuantizedInt8RVV(const ReluOpData& data,
                           const RuntimeShape& input_shape,
@@ -38,24 +34,6 @@ void ReluQuantizedInt16RVV(const ReluOpData& data,
                            const RuntimeShape& input_shape,
                            const RuntimeShape& output_shape,
                            const int16_t* input_data, int16_t* output_data);
-
-// RISC-V Vector optimized RELU6 for float32
-void Relu6FloatRVV(const RuntimeShape& input_shape, const float* input_data,
-                   const RuntimeShape& output_shape, float* output_data);
-
-// RISC-V Vector optimized RELU6 for quantized int8
-void Relu6QuantizedInt8RVV(int8_t lower, int8_t upper,
-                           const RuntimeShape& input_shape,
-                           const int8_t* input_data,
-                           const RuntimeShape& output_shape,
-                           int8_t* output_data);
-
-// RISC-V Vector optimized RELU6 for quantized int16
-void Relu6QuantizedInt16RVV(int16_t lower, int16_t upper,
-                            const RuntimeShape& input_shape,
-                            const int16_t* input_data,
-                            const RuntimeShape& output_shape,
-                            int16_t* output_data);
 
 }  // namespace tflite
 

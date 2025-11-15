@@ -48,10 +48,10 @@ TfLiteStatus ReluEval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32: {
-      ReluFloatRVV(tflite::micro::GetTensorShape(input),
-                   tflite::micro::GetTensorData<float>(input),
-                   tflite::micro::GetTensorShape(output),
-                   tflite::micro::GetTensorData<float>(output));
+      ReluFloat(tflite::micro::GetTensorShape(input),
+                tflite::micro::GetTensorData<float>(input),
+                tflite::micro::GetTensorShape(output),
+                tflite::micro::GetTensorData<float>(output));
 
       return kTfLiteOk;
     }
@@ -94,27 +94,27 @@ TfLiteStatus Relu6Eval(TfLiteContext* context, TfLiteNode* node) {
 
   switch (input->type) {
     case kTfLiteFloat32: {
-      Relu6FloatRVV(tflite::micro::GetTensorShape(input),
-                    tflite::micro::GetTensorData<float>(input),
-                    tflite::micro::GetTensorShape(output),
-                    tflite::micro::GetTensorData<float>(output));
+      Relu6Float(tflite::micro::GetTensorShape(input),
+                 tflite::micro::GetTensorData<float>(input),
+                 tflite::micro::GetTensorShape(output),
+                 tflite::micro::GetTensorData<float>(output));
 
       return kTfLiteOk;
     }
     case kTfLiteInt8: {
-      Relu6QuantizedInt8RVV(data.zero, data.six,
-                            tflite::micro::GetTensorShape(input),
-                            tflite::micro::GetTensorData<int8_t>(input),
-                            tflite::micro::GetTensorShape(output),
-                            tflite::micro::GetTensorData<int8_t>(output));
+      Relu6Quantized<int8_t>(data.zero, data.six,
+                             tflite::micro::GetTensorShape(input),
+                             tflite::micro::GetTensorData<int8_t>(input),
+                             tflite::micro::GetTensorShape(output),
+                             tflite::micro::GetTensorData<int8_t>(output));
       return kTfLiteOk;
     }
     case kTfLiteInt16: {
-      Relu6QuantizedInt16RVV(data.zero, data.six,
-                             tflite::micro::GetTensorShape(input),
-                             tflite::micro::GetTensorData<int16_t>(input),
-                             tflite::micro::GetTensorShape(output),
-                             tflite::micro::GetTensorData<int16_t>(output));
+      Relu6Quantized<int16_t>(data.zero, data.six,
+                              tflite::micro::GetTensorShape(input),
+                              tflite::micro::GetTensorData<int16_t>(input),
+                              tflite::micro::GetTensorShape(output),
+                              tflite::micro::GetTensorData<int16_t>(output));
       return kTfLiteOk;
     }
     default: {

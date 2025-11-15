@@ -22,20 +22,6 @@ limitations under the License.
 
 namespace tflite {
 
-// RISC-V Vector optimized RELU for float32
-// Note: zve32x only supports integer vectors, so we use scalar for float32
-void ReluFloatRVV(const RuntimeShape& input_shape, const float* input_data,
-                  const RuntimeShape& output_shape, float* output_data) {
-  const int flat_size = MatchingFlatSize(input_shape, output_shape);
-  
-  // Scalar implementation for float32 (zve32x doesn't support float vectors)
-  for (int i = 0; i < flat_size; ++i) {
-    const float val = input_data[i];
-    const float lower = 0.0f;
-    const float clamped = val < lower ? lower : val;
-    output_data[i] = clamped;
-  }
-}
 
 // RISC-V Vector optimized RELU for quantized int8
 void ReluQuantizedInt8RVV(const ReluOpData& data,
@@ -169,72 +155,5 @@ void ReluQuantizedInt16RVV(const ReluOpData& data,
   }
 }
 
-// RISC-V Vector optimized RELU6 for float32
-// Note: zve32x only supports integer vectors, so we use scalar for float32
-void Relu6FloatRVV(const RuntimeShape& input_shape, const float* input_data,
-                   const RuntimeShape& output_shape, float* output_data) {
-  const int flat_size = MatchingFlatSize(input_shape, output_shape);
-  
-  // Scalar implementation for float32 (zve32x doesn't support float vectors)
-  for (int i = 0; i < flat_size; ++i) {
-    const float val = input_data[i];
-    const float upper = 6.0f;
-    const float lower = 0.0f;
-    const float clamped = val > upper ? upper : val < lower ? lower : val;
-    output_data[i] = clamped;
-  }
-}
-
-// RISC-V Vector optimized RELU6 for quantized int8
-void Relu6QuantizedInt8RVV(int8_t lower, int8_t upper,
-                           const RuntimeShape& input_shape,
-                           const int8_t* input_data,
-                           const RuntimeShape& output_shape,
-                           int8_t* output_data) {
-  const int flat_size = MatchingFlatSize(input_shape, output_shape);
-  
-  int i = 0;
-  while (i < flat_size) {
-    size_t vl = __riscv_vsetvl_e8m2(flat_size - i);
-    
-    // Load input vector
-    vint8m2_t v_input = __riscv_vle8_v_i8m2(input_data + i, vl);
-    
-    // Apply clamping: clamp(x, lower, upper)
-    vint8m2_t v_output = __riscv_vmax_vx_i8m2(v_input, lower, vl);
-    v_output = __riscv_vmin_vx_i8m2(v_output, upper, vl);
-    
-    // Store result
-    __riscv_vse8_v_i8m2(output_data + i, v_output, vl);
-    
-    i += vl;
-  }
-}
-
-// RISC-V Vector optimized RELU6 for quantized int16
-void Relu6QuantizedInt16RVV(int16_t lower, int16_t upper,
-                            const RuntimeShape& input_shape,
-                            const int16_t* input_data,
-                            const RuntimeShape& output_shape,
-                            int16_t* output_data) {
-  const int flat_size = MatchingFlatSize(input_shape, output_shape);
-  
-  int i = 0;
-  while (i < flat_size) {
-    size_t vl = __riscv_vsetvl_e16m4(flat_size - i);
-    
-    // Load input vector
-    vint16m4_t v_input = __riscv_vle16_v_i16m4(input_data + i, vl);
-    
-    // Apply clamping: clamp(x, lower, upper)
-    vint16m4_t v_output = __riscv_vmax_vx_i16m4(v_input, lower, vl);
-    v_output = __riscv_vmin_vx_i16m4(v_output, upper, vl);
-    
-    // Store result
-    __riscv_vse16_v_i16m4(output_data + i, v_output, vl);
-    
-    i += vl;
-  }
-}
 
 }  // namespace tflite
