@@ -23,6 +23,7 @@ limitations under the License.
 #include "tensorflow/lite/micro/kernels/kernel_util.h"
 #include "tensorflow/lite/micro/kernels/mul.h"
 #include "tensorflow/lite/micro/memory_helpers.h"
+#include "tensorflow/lite/micro/kernels/riscv_vector/mul_rvv.h"
 
 namespace tflite {
 
@@ -128,13 +129,15 @@ TfLiteStatus EvalMulQuantizedReference(TfLiteContext* context, TfLiteNode* node,
           tflite::micro::GetTensorShape(output),
           tflite::micro::GetTensorData<int8_t>(output));
     } else {
-      reference_integer_ops::Mul(op_params,
-                                 tflite::micro::GetTensorShape(input1),
-                                 tflite::micro::GetTensorData<int8_t>(input1),
-                                 tflite::micro::GetTensorShape(input2),
-                                 tflite::micro::GetTensorData<int8_t>(input2),
-                                 tflite::micro::GetTensorShape(output),
-                                 tflite::micro::GetTensorData<int8_t>(output));
+      tflite::riscv_vector::MulInt8Rvv(
+      op_params,
+      tflite::micro::GetTensorShape(input1),
+      tflite::micro::GetTensorData<int8_t>(input1),
+      tflite::micro::GetTensorShape(input2),
+      tflite::micro::GetTensorData<int8_t>(input2),
+      tflite::micro::GetTensorShape(output),
+      tflite::micro::GetTensorData<int8_t>(output));
+
     }
   } else if (input1->type == kTfLiteInt32) {
     if (need_broadcast) {
