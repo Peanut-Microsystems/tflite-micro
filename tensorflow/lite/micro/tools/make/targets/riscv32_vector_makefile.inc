@@ -20,7 +20,6 @@ export PATH := $(TARGET_TOOLCHAIN_ROOT):$(PATH)
 PLATFORM_FLAGS = \
   -march=$(RISCV_ARCH) \
   -mabi=$(RISCV_ABI) \
-  -O3 \
   -mcmodel=$(RISCV_CODE_MODEL) \
   -mexplicit-relocs \
   -fno-builtin-printf \
@@ -66,15 +65,32 @@ MICROLITE_CC_SRCS += \
   tensorflow/lite/micro/kernels/riscv_vector/conv.cc \
   tensorflow/lite/micro/kernels/riscv_vector/depthwise_conv.cc \
   tensorflow/lite/micro/kernels/riscv_vector/fully_connected.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/pooling.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/pooling_rvv.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/signal/rfft.cc\
+  tensorflow/lite/micro/kernels/riscv_vector/signal/rfft_int16_rvv.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_rvv.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_log.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_log_rvv.cc \
   tensorflow/lite/micro/kernels/riscv_vector/softmax.cc \
   tensorflow/lite/micro/kernels/riscv_vector/add.cc \
-  tensorflow/lite/micro/kernels/riscv_vector/add_rvv.cc 
+  tensorflow/lite/micro/kernels/riscv_vector/add_rvv.cc
 
 EXCLUDED_SRCS := \
   tensorflow/lite/micro/kernels/conv.cc \
   tensorflow/lite/micro/kernels/depthwise_conv.cc \
   tensorflow/lite/micro/kernels/fully_connected.cc \
   tensorflow/lite/micro/kernels/softmax.cc \
-  tensorflow/lite/micro/kernels/add.cc
+  tensorflow/lite/micro/kernels/add.cc \
+  tensorflow/lite/micro/kernels/pooling.cc\
+  signal/micro/kernels/rfft.cc \
+  signal/src/rfft_int16.cc \
+  signal/src/kiss_fft_wrappers/kiss_fft_int16.cc \
+  signal/micro/kernels/filter_bank.cc \
+  signal/src/filter_bank.cc \
+  signal/src/filter_bank_log.cc \
+  signal/micro/kernels/filter_bank_log.cc \
+  tensorflow/lite/micro/kernels/softmax.cc
 
 
