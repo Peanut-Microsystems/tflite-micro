@@ -96,7 +96,6 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
                               const TfLiteEvalTensor* input1,
                               const TfLiteEvalTensor* input2,
                               TfLiteEvalTensor* output) {
-  printf("here");
   tflite::ArithmeticParams op_params = {};
   op_params.left_shift = data->left_shift;
   op_params.input1_offset = data->input1_offset;
@@ -117,7 +116,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
   switch (output->type) {
     case kTfLiteInt8: {
       if (need_broadcast) {
-        reference_integer_ops::BroadcastAdd4DSlow(
+        BroadcastAdd4DRVV8(
             op_params, tflite::micro::GetTensorShape(input1),
             tflite::micro::GetTensorData<int8_t>(input1),
             tflite::micro::GetTensorShape(input2),
