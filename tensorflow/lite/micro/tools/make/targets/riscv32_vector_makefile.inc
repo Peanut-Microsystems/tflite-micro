@@ -9,7 +9,7 @@ RISCV_CODE_MODEL := medany
 # Allow additional flags on the command line for debugging.
 RISCV_EXTRA_CFLAGS :=
 
-TARGET_DEFAULT_TOOLCHAIN_ROOT := $(HOME)/rv32imc_zve32x_zvl128b/bin/
+TARGET_DEFAULT_TOOLCHAIN_ROOT := $(HOME)/rv32imc/bin/
 TARGET_TOOLCHAIN_ROOT := $(TARGET_DEFAULT_TOOLCHAIN_ROOT)
 ifeq ($(TARGET_TOOLCHAIN_ROOT), $(TARGET_DEFAULT_TOOLCHAIN_ROOT))
   $(eval $(call add_third_party_download,$(RISCV_TOOLCHAIN_URL),$(RISCV_TOOLCHAIN_MD5),riscv_toolchain,))
@@ -28,7 +28,7 @@ PLATFORM_FLAGS = \
   -funsigned-char \
   -fno-delete-null-pointer-checks \
   -fomit-frame-pointer \
-  -DTFLM_USE_RISCV_VECTOR
+  -DTFLM_USE_RISCV_VECTOR -DPEANUT_MICRO_LOG
 
 CXXFLAGS += $(PLATFORM_FLAGS) \
   -fpermissive \
@@ -37,8 +37,6 @@ CXXFLAGS += $(PLATFORM_FLAGS) \
   -DTF_LITE_USE_GLOBAL_MAX
 
 CCFLAGS += $(PLATFORM_FLAGS)
-
-BUILD_TYPE := micro
 
 LDFLAGS += --specs=nano.specs
 
@@ -54,6 +52,7 @@ CXXFLAGS += $(RISCV_EXTRA_CFLAGS)
 # This disables the "linker relaxation" optimization, which produced incorrect code.
 # TODO(b/279805615): Check whether this is fixed in newer versions of the toolchain.
 LDFLAGS += -mno-relax
+
 TEST_SCRIPT := $(TENSORFLOW_ROOT)tensorflow/lite/micro/testing/test_with_spike.sh
 SIZE_SCRIPT := ${TENSORFLOW_ROOT}tensorflow/lite/micro/testing/size_riscv32_binary.sh
 
@@ -67,26 +66,14 @@ MICROLITE_CC_SRCS += \
   tensorflow/lite/micro/kernels/riscv_vector/fully_connected.cc \
   tensorflow/lite/micro/kernels/riscv_vector/pooling.cc \
   tensorflow/lite/micro/kernels/riscv_vector/pooling_rvv.cc \
-  tensorflow/lite/micro/kernels/riscv_vector/signal/rfft.cc\
+  tensorflow/lite/micro/kernels/riscv_vector/signal/rfft.cc \
   tensorflow/lite/micro/kernels/riscv_vector/signal/rfft_int16_rvv.cc \
   tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank.cc \
   tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_rvv.cc \
   tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_log.cc \
   tensorflow/lite/micro/kernels/riscv_vector/signal/filter_bank_log_rvv.cc \
-  tensorflow/lite/micro/kernels/riscv_vector/softmax.cc \
+  tensorflow/lite/micro/kernels/riscv_vector/softmax.cc
 
 EXCLUDED_SRCS := \
   tensorflow/lite/micro/kernels/conv.cc \
-  tensorflow/lite/micro/kernels/depthwise_conv.cc \
-  tensorflow/lite/micro/kernels/fully_connected.cc \
-  tensorflow/lite/micro/kernels/pooling.cc\
-  signal/micro/kernels/rfft.cc \
-  signal/src/rfft_int16.cc \
-  signal/src/kiss_fft_wrappers/kiss_fft_int16.cc \
-  signal/micro/kernels/filter_bank.cc \
-  signal/src/filter_bank.cc \
-  signal/src/filter_bank_log.cc \
-  signal/micro/kernels/filter_bank_log.cc \
-  tensorflow/lite/micro/kernels/softmax.cc \
-
-
+  tensorflow/lite/micro/kernels/depthwise_conv.cc

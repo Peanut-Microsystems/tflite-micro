@@ -26,6 +26,13 @@ namespace tflite {
 
 namespace {
 
+// RVV AvgPool implementation (defined in pooling_rvv.cc)
+extern void AvgPool8BitRVV(const PoolParams& params,
+                           const RuntimeShape& input_shape,
+                           const int8_t* input_data,
+                           const RuntimeShape& output_shape,
+                           int8_t* output_data);
+
 TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
   TFLITE_DCHECK(node->builtin_data != nullptr);
   auto* params = reinterpret_cast<TfLitePoolParams*>(node->builtin_data);
@@ -44,10 +51,31 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
     case kTfLiteFloat32:
       AveragePoolingEvalFloat(context, node, params, data, input, output);
       break;
-    case kTfLiteInt8:
+    case kTfLiteInt8: {
+#ifdef PEANUT_USE_RVV_AVGPOOL
+      // Use RVV-optimized AvgPool for int8
+      tflite::PoolParams op_params;
+      op_params.stride_height = params->stride_height;
+      op_params.stride_width = params->stride_width;
+      op_params.filter_height = params->filter_height;
+      op_params.filter_width = params->filter_width;
+      op_params.padding_values.height = data->padding.height;
+      op_params.padding_values.width = data->padding.width;
+      op_params.quantized_activation_min = data->activation_min;
+      op_params.quantized_activation_max = data->activation_max;
+
+      AvgPool8BitRVV(op_params,
+                     tflite::micro::GetTensorShape(input),
+                     tflite::micro::GetTensorData<std::int8_t>(input),
+                     tflite::micro::GetTensorShape(output),
+                     tflite::micro::GetTensorData<std::int8_t>(output));
+#else
+      // Fallback: existing scalar / reference implementation
       AveragePoolingEvalQuantized<int8_t>(context, node, params, data, input,
                                           output);
+#endif
       break;
+    }
     case kTfLiteInt16:
       AveragePoolingEvalQuantized<int16_t>(context, node, params, data, input,
                                            output);
@@ -77,44 +105,40 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
     case kTfLiteFloat32:
       MaxPoolingEvalFloat(context, node, params, data, input, output);
       break;
-    case kTfLiteInt8:
-    {
-        tflite::PoolParams op_params;
-        op_params.stride_height = params->stride_height;
-        op_params.stride_width = params->stride_width;
-        op_params.filter_height = params->filter_height;
-        op_params.filter_width = params->filter_width;
-        op_params.padding_values.height = data->padding.height;
-        op_params.padding_values.width = data->padding.width;
-        op_params.quantized_activation_min = data->activation_min;
-        op_params.quantized_activation_max = data->activation_max;
+    case kTfLiteInt8: {
+      tflite::PoolParams op_params;
+      op_params.stride_height = params->stride_height;
+      op_params.stride_width = params->stride_width;
+      op_params.filter_height = params->filter_height;
+      op_params.filter_width = params->filter_width;
+      op_params.padding_values.height = data->padding.height;
+      op_params.padding_values.width = data->padding.width;
+      op_params.quantized_activation_min = data->activation_min;
+      op_params.quantized_activation_max = data->activation_max;
 
-        MaxPool8BitRVV(op_params,
-                    tflite::micro::GetTensorShape(input),
-                    tflite::micro::GetTensorData<std::int8_t>(input),
-                    tflite::micro::GetTensorShape(output),
-                    tflite::micro::GetTensorData<std::int8_t>(output));
-    }
-      break;
-    case kTfLiteInt16:
-    {
-        tflite::PoolParams op_params;
-        op_params.stride_height = params->stride_height;
-        op_params.stride_width = params->stride_width;
-        op_params.filter_height = params->filter_height;
-        op_params.filter_width = params->filter_width;
-        op_params.padding_values.height = data->padding.height;
-        op_params.padding_values.width = data->padding.width;
-        op_params.quantized_activation_min = data->activation_min;
-        op_params.quantized_activation_max = data->activation_max;
+      MaxPool8BitRVV(op_params,
+                     tflite::micro::GetTensorShape(input),
+                     tflite::micro::GetTensorData<std::int8_t>(input),
+                     tflite::micro::GetTensorShape(output),
+                     tflite::micro::GetTensorData<std::int8_t>(output));
+    } break;
+    case kTfLiteInt16: {
+      tflite::PoolParams op_params;
+      op_params.stride_height = params->stride_height;
+      op_params.stride_width = params->stride_width;
+      op_params.filter_height = params->filter_height;
+      op_params.filter_width = params->filter_width;
+      op_params.padding_values.height = data->padding.height;
+      op_params.padding_values.width = data->padding.width;
+      op_params.quantized_activation_min = data->activation_min;
+      op_params.quantized_activation_max = data->activation_max;
 
-        MaxPool16BitRVV(op_params,
-                    tflite::micro::GetTensorShape(input),
-                    tflite::micro::GetTensorData<std::int16_t>(input),
-                    tflite::micro::GetTensorShape(output),
-                    tflite::micro::GetTensorData<std::int16_t>(output));
-    }
-      break;
+      MaxPool16BitRVV(op_params,
+                      tflite::micro::GetTensorShape(input),
+                      tflite::micro::GetTensorData<std::int16_t>(input),
+                      tflite::micro::GetTensorShape(output),
+                      tflite::micro::GetTensorData<std::int16_t>(output));
+    } break;
     default:
       MicroPrintf("Type %s not currently supported.",
                   TfLiteTypeGetName(input->type));
