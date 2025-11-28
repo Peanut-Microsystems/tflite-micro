@@ -61,7 +61,6 @@ TfLiteStatus EvalAdd(TfLiteContext* context, TfLiteNode* node,
       }
     } break;
     case kTfLiteInt32: {
-    
       tflite::ArithmeticParams op_params = {};
       SetActivationParams(std::numeric_limits<int32_t>::lowest(),
                           std::numeric_limits<int32_t>::max(), &op_params);
