@@ -17,12 +17,12 @@
 
 using namespace tflite;
 
-vint32m4_t VectorMultiplyByQuantizedMultiplierSmallerThanOne(vint32m4_t v_acc, 
+vint32m2_t VectorMultiplyByQuantizedMultiplierSmallerThanOne(vint32m2_t v_acc, 
     const int32_t multiplier, const int shift, size_t vl){
 
       //COMPUTE 64 bit product
-    vint32m4_t v_prod_lo = __riscv_vmul_vx_i32m4(v_acc, multiplier, vl);
-    vint32m4_t v_prod_hi = __riscv_vmulh_vx_i32m4(v_acc, multiplier, vl);
+    vint32m2_t v_prod_lo = __riscv_vmul_vx_i32m2(v_acc, multiplier, vl);
+    vint32m2_t v_prod_hi = __riscv_vmulh_vx_i32m2(v_acc, multiplier, vl);
 
     //rounding constant
     const int effective_right_shift = 31 - shift;
@@ -32,29 +32,29 @@ vint32m4_t VectorMultiplyByQuantizedMultiplierSmallerThanOne(vint32m4_t v_acc,
     const int32_t rounding_hi = static_cast<int32_t>((rounding_val >> 32));
 
     // Add rounding to low part (32-bit add with carry)
-    vuint32m4_t v_prod_lo_u = __riscv_vreinterpret_v_i32m4_u32m4(v_prod_lo); //make unsigned
-    vuint32m4_t v_sum_lo_u = __riscv_vadd_vx_u32m4(v_prod_lo_u, rounding_lo, vl); //adds low 32 bits of rounding to low 32 bits of product
-    vbool8_t v_carry = __riscv_vmsltu_vx_u32m4_b8(v_sum_lo_u, rounding_lo, vl); //checks if prev addition caused carry. 
+    vuint32m2_t v_prod_lo_u = __riscv_vreinterpret_v_i32m2_u32m2(v_prod_lo); //make unsigned
+    vuint32m2_t v_sum_lo_u = __riscv_vadd_vx_u32m2(v_prod_lo_u, rounding_lo, vl); //adds low 32 bits of rounding to low 32 bits of product
+    vbool16_t v_carry = __riscv_vmsltu_vx_u32m2_b16(v_sum_lo_u, rounding_lo, vl); //checks if prev addition caused carry. 
     // v_carry is mask of lanes where carry can happen
-    vint32m4_t v_rounded_hi = __riscv_vadd_vx_i32m4(v_prod_hi, rounding_hi, vl); //add 32 bits of rounding to high 32 bits of product
-    v_rounded_hi = __riscv_vadd_vx_i32m4_m(v_carry, v_rounded_hi, 1, vl); //add 1 only where v_carry is true - handle overflow of v_sum_lo_u + rounding_lo
-    vint32m4_t v_rounded_lo = __riscv_vreinterpret_v_u32m4_i32m4(v_sum_lo_u); //convert low part back to signed integers
+    vint32m2_t v_rounded_hi = __riscv_vadd_vx_i32m2(v_prod_hi, rounding_hi, vl); //add 32 bits of rounding to high 32 bits of product
+    v_rounded_hi = __riscv_vadd_vx_i32m2_m(v_carry, v_rounded_hi, 1, vl); //add 1 only where v_carry is true - handle overflow of v_sum_lo_u + rounding_lo
+    vint32m2_t v_rounded_lo = __riscv_vreinterpret_v_u32m2_i32m2(v_sum_lo_u); //convert low part back to signed integers
     
     // Perform 64b arithmetic right shift using 32b vector shifts
-    vint32m4_t v_res32;
+    vint32m2_t v_res32;
     //no right shift needed
     if (effective_right_shift == 0) {
       v_res32 = v_rounded_lo;
     } 
     else if (effective_right_shift > 0 && effective_right_shift < 32) {
-      vuint32m4_t v_lo_usrl = __riscv_vsrl_vx_u32m4(__riscv_vreinterpret_v_i32m4_u32m4(v_rounded_lo),
+      vuint32m2_t v_lo_usrl = __riscv_vsrl_vx_u32m2(__riscv_vreinterpret_v_i32m2_u32m2(v_rounded_lo),
                                                     effective_right_shift, vl); //logical right shift of low 32 bits 
-      vint32m4_t v_hi_sll = __riscv_vsll_vx_i32m4(v_rounded_hi, 32 - effective_right_shift, vl); //shift high 32 bits left to align with bits that go in 32 lower 32 bit result
-      v_res32 = __riscv_vreinterpret_v_u32m4_i32m4(
-          __riscv_vor_vv_u32m4(v_lo_usrl, __riscv_vreinterpret_v_i32m4_u32m4(v_hi_sll), vl)); //combine lo and hi
+      vint32m2_t v_hi_sll = __riscv_vsll_vx_i32m2(v_rounded_hi, 32 - effective_right_shift, vl); //shift high 32 bits left to align with bits that go in 32 lower 32 bit result
+      v_res32 = __riscv_vreinterpret_v_u32m2_i32m2(
+          __riscv_vor_vv_u32m2(v_lo_usrl, __riscv_vreinterpret_v_i32m2_u32m2(v_hi_sll), vl)); //combine lo and hi
     } else { //
       int shift_hi = std::min(31, effective_right_shift - 32); //discard low 32 bits
-      v_res32 = __riscv_vsra_vx_i32m4(v_rounded_hi, shift_hi, vl); //right shift to preserve sign 
+      v_res32 = __riscv_vsra_vx_i32m2(v_rounded_hi, shift_hi, vl); //right shift to preserve sign 
     }
 
     return v_res32;
@@ -70,41 +70,41 @@ void AddElementwiseRVV8(int size, const ArithmeticParams& params,
     // Load chunk as int8 vector
 
     //Widen inputs
-    vint8m1_t v1_i8 = __riscv_vle8_v_i8m1(input1_data + i, vl);
-    vint8m1_t v2_i8 = __riscv_vle8_v_i8m1(input2_data + i, vl);
+    vint8mf2_t v1_i8 = __riscv_vle8_v_i8mf2(input1_data + i, vl);
+    vint8mf2_t v2_i8 = __riscv_vle8_v_i8mf2(input2_data + i, vl);
 
-    vint32m4_t v1 = __riscv_vsext_vf4_i32m4(v1_i8, vl);
-    vint32m4_t v2 = __riscv_vsext_vf4_i32m4(v2_i8, vl);
+    vint32m2_t v1 = __riscv_vsext_vf4_i32m2(v1_i8, vl);
+    vint32m2_t v2 = __riscv_vsext_vf4_i32m2(v2_i8, vl);
 
     //Dequantize
 
     //Add input offsets
-    v1 = __riscv_vadd_vx_i32m4(v1, params.input1_offset, vl);
-    v2 = __riscv_vadd_vx_i32m4(v2, params.input2_offset, vl);
+    v1 = __riscv_vadd_vx_i32m2(v1, params.input1_offset, vl);
+    v2 = __riscv_vadd_vx_i32m2(v2, params.input2_offset, vl);
 
     //Left shit by left shift amount
     if(params.left_shift > 0){
-      v1 = __riscv_vsll_vx_i32m4(v1, params.left_shift, vl);
-      v2 = __riscv_vsll_vx_i32m4(v2, params.left_shift, vl);
+      v1 = __riscv_vsll_vx_i32m2(v1, params.left_shift, vl);
+      v2 = __riscv_vsll_vx_i32m2(v2, params.left_shift, vl);
     }
 
-    vint32m4_t v1_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v1, params.input1_multiplier, params.input1_shift, vl);
-    vint32m4_t v2_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v2, params.input2_multiplier, params.input2_shift, vl);
+    vint32m2_t v1_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v1, params.input1_multiplier, params.input1_shift, vl);
+    vint32m2_t v2_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v2, params.input2_multiplier, params.input2_shift, vl);
 
     //add scaled inputs
-    vint32m4_t v_sum = __riscv_vadd_vv_i32m4(v1_scaled, v2_scaled, vl);
+    vint32m2_t v_sum = __riscv_vadd_vv_i32m2(v1_scaled, v2_scaled, vl);
 
     const int effective_right_shift = 31 - params.output_shift;
     //requantize
-    vint32m4_t v_res32 = RequantizeVectorPerTensorS32(
+    vint32m2_t v_res32 = RequantizeVectorPerTensorS32(
         v_sum, params.output_multiplier, effective_right_shift,
         params.output_offset, params.quantized_activation_min,
         params.quantized_activation_max, vl);
 
-    vint16m2_t v_res16 = __riscv_vnclip_wx_i16m2(v_res32, 0, __RISCV_VXRM_RNU, vl);
-    vint8m1_t v_out8 = __riscv_vnclip_wx_i8m1(v_res16, 0, __RISCV_VXRM_RNU, vl);
+    vint16m1_t v_res16 = __riscv_vnclip_wx_i16m1(v_res32, 0, __RISCV_VXRM_RNU, vl);
+    vint8mf2_t v_out8 = __riscv_vnclip_wx_i8mf2(v_res16, 0, __RISCV_VXRM_RNU, vl);
 
-    __riscv_vse8_v_i8m1(output_data + i, v_out8, vl);
+    __riscv_vse8_v_i8mf2(output_data + i, v_out8, vl);
 
     i += vl;
   }
@@ -120,54 +120,7 @@ void AddRVV8(const ArithmeticParams& params,
 
   const int flat_size = MatchingElementsSize(input1_shape, input2_shape, output_shape);
   AddElementwiseRVV8(flat_size, params, input1_data, input2_data, output_data);
-  //int i = 0;
-  // while (i < flat_size) {
-  //   // Determine vector length for remaining elements (in bytes for e8)
-  //   size_t vl = __riscv_vsetvl_e8m1(flat_size - i);
-  //   // Load chunk as int8 vector
-
-  //   //Widen inputs
-  //   vint8m1_t v1_i8 = __riscv_vle8_v_i8m1(input1_data + i, vl);
-  //   vint8m1_t v2_i8 = __riscv_vle8_v_i8m1(input2_data + i, vl);
-
-  //   vint16m2_t v1_i16 = __riscv_vsext_vf2_i16m2(v1_i8, vl);
-  //   vint16m2_t v2_i16 = __riscv_vsext_vf2_i16m2(v2_i8, vl);
-
-  //   vint32m4_t v1 = __riscv_vsext_vf2_i32m4(v1_i16, vl);
-  //   vint32m4_t v2 = __riscv_vsext_vf2_i32m4(v2_i16, vl);
-
-  //   //Dequantize
-
-  //   //Add input offsets
-  //   v1 = __riscv_vadd_vx_i32m4(v1, params.input1_offset, vl);
-  //   v2 = __riscv_vadd_vx_i32m4(v2, params.input2_offset, vl);
-
-  //   //Left shit by left shift amount
-  //   if(params.left_shift > 0){
-  //     v1 = __riscv_vsll_vx_i32m4(v1, params.left_shift, vl);
-  //     v2 = __riscv_vsll_vx_i32m4(v2, params.left_shift, vl);
-  //   }
-
-  //   vint32m4_t v1_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v1, params.input1_multiplier, params.input1_shift, vl);
-  //   vint32m4_t v2_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v2, params.input2_multiplier, params.input2_shift, vl);
-
-  //   //add scaled inputs
-  //   vint32m4_t v_sum = __riscv_vadd_vv_i32m4(v1_scaled, v2_scaled, vl);
-
-  //   const int effective_right_shift = 31 - params.output_shift;
-  //   //requantize
-  //   vint32m4_t v_res32 = RequantizeVectorPerTensorS32(
-  //       v_sum, params.output_multiplier, effective_right_shift,
-  //       params.output_offset, params.quantized_activation_min,
-  //       params.quantized_activation_max, vl);
-
-  //   vint16m2_t v_res16 = __riscv_vnclip_wx_i16m2(v_res32, 0, __RISCV_VXRM_RNU, vl);
-  //   vint8m1_t v_out8 = __riscv_vnclip_wx_i8m1(v_res16, 0, __RISCV_VXRM_RNU, vl);
-
-  //   __riscv_vse8_v_i8m1(output_data + i, v_out8, vl);
-
-  //   i += vl;
-  //}
+  
 }
 
 static void AddBroadcast1_Contiguous2_RVV8(size_t size, const ArithmeticParams& params, 
@@ -184,37 +137,37 @@ static void AddBroadcast1_Contiguous2_RVV8(size_t size, const ArithmeticParams& 
     // Determine vector length for remaining elements (in bytes for e8)
     size_t vl = __riscv_vsetvl_e8m1(size - i);
    
-    vint32m4_t v1 = __riscv_vmv_v_x_i32m4(s32, vl);
+    vint32m2_t v1 = __riscv_vmv_v_x_i32m2(s32, vl);
 
     //Widen inputs
-    vint8m1_t v2_i8 = __riscv_vle8_v_i8m1(input2_data + i, vl);
-    vint32m4_t v2 = __riscv_vsext_vf4_i32m4(v2_i8, vl);
+    vint8mf2_t v2_i8 = __riscv_vle8_v_i8mf2(input2_data + i, vl);
+    vint32m2_t v2 = __riscv_vsext_vf4_i32m2(v2_i8, vl);
 
     //Dequantize
     //Add input offsets
-    v2 = __riscv_vadd_vx_i32m4(v2, params.input2_offset, vl);
+    v2 = __riscv_vadd_vx_i32m2(v2, params.input2_offset, vl);
 
     //Left shit by left shift amount
     if(params.left_shift > 0){
-      v2 = __riscv_vsll_vx_i32m4(v2, params.left_shift, vl);
+      v2 = __riscv_vsll_vx_i32m2(v2, params.left_shift, vl);
     }
 
-    vint32m4_t v2_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v2, params.input2_multiplier, params.input2_shift, vl);
+    vint32m2_t v2_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v2, params.input2_multiplier, params.input2_shift, vl);
 
     //add scaled inputs
-    vint32m4_t v_sum = __riscv_vadd_vv_i32m4(v1, v2_scaled, vl);
+    vint32m2_t v_sum = __riscv_vadd_vv_i32m2(v1, v2_scaled, vl);
 
     const int effective_right_shift = 31 - params.output_shift;
     //requantize
-    vint32m4_t v_res32 = RequantizeVectorPerTensorS32(
+    vint32m2_t v_res32 = RequantizeVectorPerTensorS32(
         v_sum, params.output_multiplier, effective_right_shift,
         params.output_offset, params.quantized_activation_min,
         params.quantized_activation_max, vl);
 
-    vint16m2_t v_res16 = __riscv_vnclip_wx_i16m2(v_res32, 0, __RISCV_VXRM_RNU, vl);
-    vint8m1_t v_out8 = __riscv_vnclip_wx_i8m1(v_res16, 0, __RISCV_VXRM_RNU, vl);
+    vint16m1_t v_res16 = __riscv_vnclip_wx_i16m1(v_res32, 0, __RISCV_VXRM_RNU, vl);
+    vint8mf2_t v_out8 = __riscv_vnclip_wx_i8mf2(v_res16, 0, __RISCV_VXRM_RNU, vl);
 
-    __riscv_vse8_v_i8m1(output_data + i, v_out8, vl);
+    __riscv_vse8_v_i8mf2(output_data + i, v_out8, vl);
 
     i += vl;
     }
@@ -234,37 +187,37 @@ static void AddBroadcast1_Contiguous2_RVV8(size_t size, const ArithmeticParams& 
     // Determine vector length for remaining elements (in bytes for e8)
     size_t vl = __riscv_vsetvl_e8m1(size - i);
    
-    vint32m4_t v2 = __riscv_vmv_v_x_i32m4(s32, vl);
+    vint32m2_t v2 = __riscv_vmv_v_x_i32m2(s32, vl);
 
     //Widen inputs
-    vint8m1_t v1_i8 = __riscv_vle8_v_i8m1(input1_data + i, vl);
-    vint32m4_t v1 = __riscv_vsext_vf4_i32m4(v1_i8, vl);
+    vint8mf2_t v1_i8 = __riscv_vle8_v_i8mf2(input1_data + i, vl);
+    vint32m2_t v1 = __riscv_vsext_vf4_i32m2(v1_i8, vl);
 
     //Dequantize
     //Add input offsets
-    v1 = __riscv_vadd_vx_i32m4(v1, params.input1_offset, vl);
+    v1 = __riscv_vadd_vx_i32m2(v1, params.input1_offset, vl);
 
     //Left shit by left shift amount
     if(params.left_shift > 0){
-      v1 = __riscv_vsll_vx_i32m4(v1, params.left_shift, vl);
+      v1 = __riscv_vsll_vx_i32m2(v1, params.left_shift, vl);
     }
 
-    vint32m4_t v1_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v1, params.input1_multiplier, params.input1_shift, vl);
+    vint32m2_t v1_scaled = VectorMultiplyByQuantizedMultiplierSmallerThanOne(v1, params.input1_multiplier, params.input1_shift, vl);
 
     //add scaled inputs
-    vint32m4_t v_sum = __riscv_vadd_vv_i32m4(v1_scaled, v2, vl);
+    vint32m2_t v_sum = __riscv_vadd_vv_i32m2(v1_scaled, v2, vl);
 
     const int effective_right_shift = 31 - params.output_shift;
     //requantize
-    vint32m4_t v_res32 = RequantizeVectorPerTensorS32(
+    vint32m2_t v_res32 = RequantizeVectorPerTensorS32(
         v_sum, params.output_multiplier, effective_right_shift,
         params.output_offset, params.quantized_activation_min,
         params.quantized_activation_max, vl);
 
-    vint16m2_t v_res16 = __riscv_vnclip_wx_i16m2(v_res32, 0, __RISCV_VXRM_RNU, vl);
-    vint8m1_t v_out8 = __riscv_vnclip_wx_i8m1(v_res16, 0, __RISCV_VXRM_RNU, vl);
+    vint16m1_t v_res16 = __riscv_vnclip_wx_i16m1(v_res32, 0, __RISCV_VXRM_RNU, vl);
+    vint8mf2_t v_out8 = __riscv_vnclip_wx_i8mf2(v_res16, 0, __RISCV_VXRM_RNU, vl);
 
-    __riscv_vse8_v_i8m1(output_data + i, v_out8, vl);
+    __riscv_vse8_v_i8mf2(output_data + i, v_out8, vl);
 
     i += vl;
     }
