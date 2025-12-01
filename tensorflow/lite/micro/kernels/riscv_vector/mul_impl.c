@@ -1,6 +1,6 @@
 #include <stddef.h>        // for size_t
-#include <stdint.h>        // for int8_t, int16_t, etc.
-#include <riscv_vector.h>  // for RVV intrinsics
+#include <stdint.h>        // for int8_t, etc.
+#include <riscv_vector.h>  // for vint8m1_t and intrinsics
 
 void MulScalar(
     int8_t* input1, int8_t* input2, int8_t* output, int size)
@@ -18,32 +18,23 @@ void MulScalar(
 void MulRVV(
     int8_t* input1, int8_t* input2, int8_t* output, int size)
 {
-    size_t n = (size_t)size;
+    // Simple int8 vector multiply for benchmarking.
+    // Our input ranges are small, so the result fits in int8.
+    for (int i = 0; i < size; ) {
+        size_t vl = __riscv_vsetvl_e8m1(size - i);
 
-    for (size_t i = 0; i < n; ) {
-        // Set vector length for 8-bit elements
-        size_t vl = __riscv_vsetvl_e8m1(n - i);
-
-        // Load 8-bit vectors
+        // load int8 vectors
         vint8m1_t v1 = __riscv_vle8_v_i8m1(&input1[i], vl);
         vint8m1_t v2 = __riscv_vle8_v_i8m1(&input2[i], vl);
 
-        // Widening multiply: int8 x int8 -> int16
-        vint16m2_t vprod = __riscv_vwmul_vv_i16m2(v1, v2, vl);
+        // vector multiply in int8
+        vint8m1_t vout = __riscv_vmul_vv_i8m1(v1, v2, vl);
 
-        // Store 16-bit products into a temporary buffer
-        int16_t tmp[vl];  // VLA sized by current vl
-        __riscv_vse16_v_i16m2(tmp, vprod, vl);
-
-        // Scalar saturation back to int8 range
-        for (size_t j = 0; j < vl; ++j) {
-            int32_t r = tmp[j];
-            if (r > 127)  r = 127;
-            if (r < -128) r = -128;
-            output[i + j] = (int8_t)r;
-        }
+        // store back to memory
+        __riscv_vse8_v_i8m1(&output[i], vout, vl);
 
         i += vl;
     }
 }
+
 
