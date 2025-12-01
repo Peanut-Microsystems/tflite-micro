@@ -45,12 +45,42 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
       AveragePoolingEvalFloat(context, node, params, data, input, output);
       break;
     case kTfLiteInt8:
-      AveragePoolingEvalQuantized<int8_t>(context, node, params, data, input,
-                                          output);
+    {
+        tflite::PoolParams op_params;
+        op_params.stride_height = params->stride_height;
+        op_params.stride_width = params->stride_width;
+        op_params.filter_height = params->filter_height;
+        op_params.filter_width = params->filter_width;
+        op_params.padding_values.height = data->padding.height;
+        op_params.padding_values.width = data->padding.width;
+        op_params.quantized_activation_min = data->activation_min;
+        op_params.quantized_activation_max = data->activation_max;
+
+        AvgPool8bitRVV(op_params,
+                    tflite::micro::GetTensorShape(input),
+                    tflite::micro::GetTensorData<std::int8_t>(input),
+                    tflite::micro::GetTensorShape(output),
+                    tflite::micro::GetTensorData<std::int8_t>(output));
+        }
       break;
     case kTfLiteInt16:
-      AveragePoolingEvalQuantized<int16_t>(context, node, params, data, input,
-                                           output);
+    {
+        tflite::PoolParams op_params;
+        op_params.stride_height = params->stride_height;
+        op_params.stride_width = params->stride_width;
+        op_params.filter_height = params->filter_height;
+        op_params.filter_width = params->filter_width;
+        op_params.padding_values.height = data->padding.height;
+        op_params.padding_values.width = data->padding.width;
+        op_params.quantized_activation_min = data->activation_min;
+        op_params.quantized_activation_max = data->activation_max;
+
+        AvgPool16bitRVV(op_params,
+                    tflite::micro::GetTensorShape(input),
+                    tflite::micro::GetTensorData<std::int16_t>(input),
+                    tflite::micro::GetTensorShape(output),
+                    tflite::micro::GetTensorData<std::int16_t>(output));
+    }
       break;
     default:
       MicroPrintf("Input type %s is not currently supported",
