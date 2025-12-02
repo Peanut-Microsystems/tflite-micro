@@ -1,9 +1,17 @@
-#include <cinttypes>
-#include <cstdint>
 #include <cstdio>
+#include <cinttypes>
 
-#include "tensorflow/lite/c/builtin_op_data.h"
 #include "tensorflow/lite/c/common.h"
+#include "tensorflow/lite/kernels/internal/reference/integer_ops/mul.h"
+#include "tensorflow/lite/kernels/internal/types.h"
+#include "tensorflow/lite/micro/micro_log.h"
+
+#include "tensorflow/lite/micro/kernels/riscv_vector/mul_rvv.h"
+#include "tensorflow/lite/micro/kernels/riscv_vector/requantize_rvv.h"
+
+// Alias so the rest of the file can keep using TfLiteArithmeticParams
+using TfLiteArithmeticParams = tflite::ArithmeticParams;
+
 
 // -----------------------------------------------------------------------------
 // Declarations of the three kernel implementations in mul_impl.c
