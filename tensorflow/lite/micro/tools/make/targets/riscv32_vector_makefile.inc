@@ -29,7 +29,8 @@ PLATFORM_FLAGS = \
   -funsigned-char \
   -fno-delete-null-pointer-checks \
   -fomit-frame-pointer \
-  -DTFLM_USE_RISCV_VECTOR
+  -DTFLM_USE_RISCV_VECTOR \
+  -DPEANUT_MICRO_LOG
 
 CXXFLAGS += $(PLATFORM_FLAGS) \
   -fpermissive \

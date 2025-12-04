@@ -213,4 +213,26 @@ void EvalMulFloatReference(TfLiteContext* context, TfLiteNode* node,
   }
 }
 
+#if !defined(TFLM_USE_RISCV_VECTOR)
+// Fallback scalar implementation for builds that *don’t* enable RVV.
+// This satisfies the linker when MulInt8Rvv is referenced, and simply
+// uses the reference integer Mul implementation.
+namespace riscv_vector {
+
+void MulInt8Rvv(const ArithmeticParams& params,
+                const RuntimeShape& input1_shape,
+                const int8_t* input1_data,
+                const RuntimeShape& input2_shape,
+                const int8_t* input2_data,
+                const RuntimeShape& output_shape,
+                int8_t* output_data) {
+  reference_integer_ops::Mul(params,
+                             input1_shape, input1_data,
+                             input2_shape, input2_data,
+                             output_shape, output_data);
+}
+
+}  // namespace riscv_vector
+#endif  // !TFLM_USE_RISCV_VECTOR
+
 }  // namespace tflite
