@@ -12,26 +12,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include <cstdio>
 
 #include "tensorflow/lite/c/builtin_op_data.h"
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/micro/kernels/kernel_runner.h"
 #include "tensorflow/lite/micro/test_helpers.h"
 #include "tensorflow/lite/micro/testing/micro_test.h"
-#include "tensorflow/lite/kernels/internal/runtime_shape.h"
-#include "tensorflow/lite/kernels/internal/types.h"
-#include "tensorflow/lite/kernels/internal/reference/integer_ops/mul.h"
-
-#if defined(TFLM_USE_RISCV_VECTOR_MUL)
-#include "tensorflow/lite/micro/kernels/riscv_vector/mul_rvv.h"
-#endif
-
-
-static inline uint64_t ReadTicks() {
-  return 0;  // TEMP: no rdcycle, just a dummy
-}
-
 
 namespace tflite {
 namespace testing {
@@ -262,59 +248,5 @@ TF_LITE_MICRO_TEST(SimpleInt32NoActivationShouldMatchGolden) {
       tflite::testing::dims_simple, tflite::testing::golden_simple,
       golden_quantized, 0.0001, 0, output_data, kTfLiteActNone);
 }
-
-// -------------------------------------------------------------
-// Benchmark for int8 Mul (direct call to mul_common.cc dispatcher)
-// -------------------------------------------------------------
-TF_LITE_MICRO_TEST(BenchmarkInt8MulDirect) {
-  // Size of the test vectors
-  constexpr int kSize = 16;
-  int8_t input1[kSize];
-  int8_t input2[kSize];
-  int8_t output[kSize];
-
-  // Fill inputs with deterministic data
-  for (int i = 0; i < kSize; i++) {
-    input1[i] = (i * 3) % 7 - 3;
-    input2[i] = (i * 5) % 9 - 4;
-  }
-
-  // Set up quantized Mul params
-  tflite::ArithmeticParams params;
-  params.input1_offset = 0;
-  params.input2_offset = 0;
-  params.output_offset = 0;
-  // 0.5 in Q31 fixed point
-  params.output_multiplier = 1073741824;
-  params.output_shift = -1;
-  params.quantized_activation_min = -128;
-  params.quantized_activation_max = 127;
-
-  // 1D shape with kSize elements
-  tflite::RuntimeShape shape({1, kSize});
-  tflite::RuntimeShape out_shape({1, kSize});
-
-  constexpr int kIters = 20000;
-
-  uint64_t start = ReadTicks();
-  for (int i = 0; i < kIters; ++i) {
-#if defined(TFLM_USE_RISCV_VECTOR_MUL)
-    // Your RVV-optimized path
-    tflite::riscv_vector::MulInt8Rvv(params, shape, input1, shape, input2,
-                                     out_shape, output);
-#else
-    // Reference scalar implementation
-    tflite::reference_integer_ops::Mul(params, shape, input1, shape, input2,
-                                       out_shape, output);
-#endif
-  }
-  uint64_t end = ReadTicks();
-  uint64_t cycles = end - start;
-
-  printf("BenchmarkInt8MulDirect: %llu cycles, %f cycles/iter\n",
-         (unsigned long long)cycles,
-         (double)cycles / kIters);
-}
-
 
 TF_LITE_MICRO_TESTS_END
